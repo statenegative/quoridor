@@ -1,0 +1,2 @@
+# quoridor
+Python Quoridor implementation.
