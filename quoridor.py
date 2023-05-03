@@ -3,6 +3,7 @@
 # Author: Julia Kaeppel and Ben McAuliffe
 from enum import Enum
 import numpy as np
+from copy import deepcopy
 
 class _Direction(Enum):
     UP = 0
@@ -23,6 +24,8 @@ class Board:
         self.p1_walls = 10
         self.p2_walls = 10
     
+    def deepcopy(self):
+        return deepcopy(self)
     # Returns whether a wall is adjacent to a tile in a given direction.
     def wall_adj(self, x: np.uint8, y: np.uint8, dir: _Direction) -> bool:
         if dir == _Direction.UP:
@@ -101,8 +104,9 @@ class Board:
         
         # Pawn movement
         # Determine active and inactive pawn
-        ap, ip = self.p1, self.p2 if p1_turn else self.p2, self.p1 #tuples (x,y)
-
+        ap, ip = (self.p1, self.p2) if p1_turn else (self.p2, self.p1) #tuples (x,y)
+        print(ap)
+        print(ip)
         # Moving up
         if ap[1] < 8:
             if not self.wall_adj(ap[0], ap[1], _Direction.UP):
@@ -291,6 +295,7 @@ class Board:
 def main():
     board = Board()
     print(board)
+    print(len(board.adj_states(1)))
 
 if __name__ == "__main__":
     main()
