@@ -5,7 +5,7 @@ from enum import Enum
 import numpy as np
 from copy import deepcopy
 
-class _Direction(Enum):
+class _Dir(Enum):
     UP = 0
     DOWN = 1
     RIGHT = 2
@@ -13,8 +13,8 @@ class _Direction(Enum):
 
 # The walls array has shape (2, 8, 8). The first index of the first dimension
 # is for horizontal walls, and the second is for vertical walls. The second
-# dimension is the Y dimension, and the third dimension is the X dimension.s
-#(0,0) is the bottom left corner
+# dimension is the Y dimension, and the third dimension is the X dimension.
+# (0, 0) is the bottom left corner
 class Board:
     # Initializes an empty board with initial pawn placements.
     def __init__(self):
@@ -24,11 +24,9 @@ class Board:
         self.p1_walls = 10
         self.p2_walls = 10
     
-    def deepcopy(self):
-        return deepcopy(self)
     # Returns whether a wall is adjacent to a tile in a given direction.
-    def wall_adj(self, x: np.uint8, y: np.uint8, dir: _Direction) -> bool:
-        if dir == _Direction.UP:
+    def wall_adj(self, x: np.uint8, y: np.uint8, dir: _Dir) -> bool:
+        if dir == _Dir.UP:
             if y == 8:
                 return False
             if x == 0:
@@ -37,7 +35,7 @@ class Board:
                 return self.walls[0][y][x-1]
             return self.walls[0][y][x-1] or self.walls[0][y][x]
 
-        elif dir == _Direction.DOWN:
+        elif dir == _Dir.DOWN:
             if y == 0:
                 return False
             if x == 0:
@@ -46,7 +44,7 @@ class Board:
                 return self.walls[0][y-1][x-1]
             return self.walls[0][y-1][x-1] or self.walls[0][y-1][x]
         
-        elif dir == _Direction.RIGHT:
+        elif dir == _Dir.RIGHT:
             if x == 8:
                 return False
             if y == 0:
@@ -55,7 +53,7 @@ class Board:
                 return self.walls[1][y-1][x]
             return self.walls[1][y-1][x] or self.walls[1][y][x]
         
-        elif dir == _Direction.LEFT:
+        elif dir == _Dir.LEFT:
             if x == 0:
                 return False
             if y == 0:
@@ -69,185 +67,123 @@ class Board:
         states = []
 
         # Place walls
-        if (p1_turn and self.p1_walls > 0) or (not p1_turn and self.p2_walls > 0):
-            for y in range(8):
-                for x in range(8):
-                    # Horizontal wall
-                    if (not self.walls[1][y][x] and not self.walls[0][y][x] and 
-                        x > 0 and not self.walls[0][y][x-1] and 
-                        x < 7 and not self.walls[0][y][x+1]):
-                        # Add state
-                        state = self.deepcopy()
+        for y in range(8):
+            for x in range(8):
+                # Check wall count
+                active_walls = self.p1_walls if p1_turn else self.p2_walls
+                if active_walls == 0:
+                    continue
 
-                        # Place wall and update wall count
-                        state.walls[0][y][x] = True
-                        if p1_turn:
-                            state.p1_walls -= 1
-                        else:
-                            state.p2_walls -= 1
-
-                        states.append(state)
-                    
-                    # Vertical wall
-                    if (not self.walls[0][y][x] and not self.walls[1][y][x] and 
-                        y > 0 and not self.walls[1][y-1][x] and 
-                        y < 7 and not self.walls[1][y+1][x]):
-                        # Add state
-                        states.append(self.deepcopy())
-
-                        # Place wall and update wall count
-                        states[-1].walls[1][y][x] = True
-                        if p1_turn:
-                            states[-1].p1_walls -= 1
-                        else:
-                            states[-1].p2_walls -= 1
+                # Horizontal wall
+                if not (self.wall_adj(x, y, _Dir.UP) or
+                    self.wall_adj(x + 1, y, _Dir.UP) or self.walls[1][y][x]):
+                    states.append(self.__place_wall(p1_turn, x, y, 0))
+                
+                # Vertical wall
+                if not (self.wall_adj(x, y, _Dir.RIGHT) or
+                    self.wall_adj(x, y + 1, _Dir.RIGHT) or
+                    self.walls[0][y][x]):
+                    states.append(self.__place_wall(p1_turn, x, y, 1))
         
-        # Pawn movement
-        # Determine active and inactive pawn
-        ap, ip = (self.p1, self.p2) if p1_turn else (self.p2, self.p1) #tuples (x,y)
-        print(ap)
-        print(ip)
-        # Moving up
+        # Handle jumping
+        ap, ip = (self.p1, self.p2) if p1_turn else (self.p2, self.p1)
+
+        # Jumping up
         if ap[1] < 8:
-            if not self.wall_adj(ap[0], ap[1], _Direction.UP):
+            # Check for wall
+            if not self.wall_adj(ap[0], ap[1], _Dir.UP):
+                # Check for inactive pawn
                 if (ap[0], ap[1] + 1) != ip:
-                    # Add state
-                    states.append(self.deepcopy())
-                    if p1_turn:
-                        states[-1].p1 = (ap[0], ap[1] + 1)
-                    else:
-                        states[-1].p2 = (ap[0], ap[1] + 1)
+                    states.append(self.__move_pawn(p1_turn, ap[0], ap[1] + 1))
                 else:
-                    #jump handeling
-                    #Upward jump
-                    if (ap[0], ap[1] + 1) == ip and not self.wall_adj(ap[0], ap[1]+1, _Direction.UP) and not (ip[1] == 0 or ip[1] == 8):
-                        states.append(self.deepcopy())
-                        if p1_turn:
-                            states[-1].p1 = (ap[0], ap[1] + 2)
-                        else:
-                            states[-1].p2 = (ap[0], ap[1] + 2)
-                    #L jump UP and to the side
-                    if (ap[0], ap[1] + 1) == ip and self.wall_adj(ap[0], ap[1]+1, _Direction.UP) and not (ip[1] == 0 or ip[1] == 8):
-                        #Up and Right
-                        if not ip[0] == 8 and not self.wall_adj(ap[0], ap[1]+1, _Direction.RIGHT):
-                            states.append(self.deepcopy())
-                            if p1_turn:
-                                states[-1].p1 = (ap[0] + 1, ap[1] + 1)
-                            else:
-                                states[-1].p2 = (ap[0] + 1, ap[1] + 1)
-                        #Up and Left
-                        if not ip[0] == 0 and not self.wall_adj(ap[0], ap[1]+1, _Direction.LEFT):
-                            states.append(self.deepcopy())
-                            if p1_turn:
-                                states[-1].p1 = (ap[0] - 1, ap[1] + 1)
-                            else:
-                                states[-1].p2 = (ap[0] - 1, ap[1] + 1)
-        # Moving down
-        if ap[1] < 8:
-            if not self.wall_adj(ap[0], ap[1], _Direction.DOWN):
+                    # Check whether straight jump can be performed
+                    if ap[1] < 7 and not self.wall_adj(ip[0], ip[1], _Dir.UP):
+                        states.append(self.__move_pawn(p1_turn, ap[0], ap[1] + 2))
+                    else:
+                        # Check whether left diagonal jump can be performed
+                        if ap[0] > 0 and not self.wall_adj(ip[0], ip[1], _Dir.LEFT):
+                            states.append(self.__move_pawn(p1_turn, ap[0] - 1, ap[1] + 1))
+                        # Check whether right diagonal jump can be performed
+                        if ap[0] < 8 and not self.wall_adj(ip[0], ip[1], _Dir.RIGHT):
+                            states.append(self.__move_pawn(p1_turn, ap[0] + 1, ap[1] + 1))
+        
+        # Jumping down
+        if ap[1] > 0:
+            # Check for wall
+            if not self.wall_adj(ap[0], ap[1], _Dir.DOWN):
+                # Check for inactive pawn
                 if (ap[0], ap[1] - 1) != ip:
-                    # Add state
-                    states.append(self.deepcopy())
-                    if p1_turn:
-                        states[-1].p1 = (ap[0], ap[1] - 1)
-                    else:
-                        states[-1].p2 = (ap[0], ap[1] - 1)
+                    states.append(self.__move_pawn(p1_turn, ap[0], ap[1] - 1))
                 else:
-                    #Straight jump handeling
-                    #Downward jump
-                    if (ap[0], ap[1] + 1) == ip and not self.wall_adj(ap[0], ap[1] - 1, _Direction.DOWN) and not (ip[1] == 0 or ip[1] == 8):
-                        states.append(self.deepcopy())
-                        if p1_turn:
-                            states[-1].p1 = (ap[0], ap[1] - 2)
-                        else:
-                            states[-1].p2 = (ap[0], ap[1] - 2)
-                    #L jump Down and to the side
-                    if (ap[0], ap[1] + 1) == ip and self.wall_adj(ap[0], ap[1]+1, _Direction.Down) and not (ip[1] == 0 or ip[1] == 8):
-                        #Down and Right
-                        if not ip[0] == 8 and not self.wall_adj(ap[0], ap[1]+1, _Direction.RIGHT):
-                            states.append(self.deepcopy())
-                            if p1_turn:
-                                states[-1].p1 = (ap[0] + 1, ap[1] - 1)
-                            else:
-                                states[-1].p2 = (ap[0] + 1, ap[1] - 1)
-                        #Down and Left
-                        if not ip[0] == 0 and not self.wall_adj(ap[0], ap[1]+1, _Direction.LEFT):
-                            states.append(self.deepcopy())
-                            if p1_turn:
-                                states[-1].p1 = (ap[0] - 1, ap[1] - 1)
-                            else:
-                                states[-1].p2 = (ap[0] - 1, ap[1] - 1)
-        # Moving right
-        if ap[1] < 8:
-            if not self.wall_adj(ap[0], ap[1], _Direction.RIGHT):
+                    # Check whether straight jump can be performed
+                    if ap[1] > 1 and not self.wall_adj(ip[0], ip[1], _Dir.DOWN):
+                        states.append(self.__move_pawn(p1_turn, ap[0], ap[1] - 2))
+                    else:
+                        # Check whether left diagonal jump can be performed
+                        if ap[0] > 0 and not self.wall_adj(ip[0], ip[1], _Dir.LEFT):
+                            states.append(self.__move_pawn(p1_turn, ap[0] - 1, ap[1] - 1))
+                        # Check whether right diagonal jump can be performed
+                        if ap[0] < 8 and not self.wall_adj(ip[0], ip[1], _Dir.RIGHT):
+                            states.append(self.__move_pawn(p1_turn, ap[0] + 1, ap[1] - 1))
+        
+        # Jumping right
+        if ap[0] < 8:
+            # Check for wall
+            if not self.wall_adj(ap[0], ap[1], _Dir.RIGHT):
+                # Check for inactive pawn
                 if (ap[0] + 1, ap[1]) != ip:
-                    # Add state
-                    states.append(self.deepcopy())
-                    if p1_turn:
-                        states[-1].p1 = (ap[0] + 1, ap[1])
-                    else:
-                        states[-1].p2 = (ap[0] + 1, ap[1])
+                    states.append(self.__move_pawn(p1_turn, ap[0] + 1, ap[1]))
                 else:
-                    #Right jump
-                    if (ap[0] + 1, ap[1]) == ip and not self.wall_adj(ap[0] + 1, ap[1], _Direction.RIGHT) and not (ip[0] == 0 or ip[0] == 8):
-                        states.append(self.deepcopy())
-                        if p1_turn:
-                            states[-1].p1 = (ap[0] + 2, ap[1])
-                        else:
-                            states[-1].p2 = (ap[0] + 2, ap[1])
-            #L jump Right and veritically
-                    #if ip is to the right and there is a wall to the right of ip
-                    if (ap[0] + 1, ap[1]) == ip and self.wall_adj(ap[0] + 1, ap[1], _Direction.RIGHT) and not (ip[0] == 0 or ip[0] == 8):
-                        #Right and Up
-                        if not ip[1] == 8 and not self.wall_adj(ap[0] + 1, ap[1], _Direction.UP):
-                            states.append(self.deepcopy())
-                            if p1_turn:
-                                states[-1].p1 = (ap[0] + 1, ap[1] + 1)
-                            else:
-                                states[-1].p2 = (ap[0] + 1, ap[1] + 1)
-                        #Right and Down
-                        if not ip[1] == 0 and not self.wall_adj(ap[0] + 1, ap[1], _Direction.DOWN):
-                            states.append(self.deepcopy())
-                            if p1_turn:
-                                states[-1].p1 = (ap[0] + 1, ap[1] - 1)
-                            else:
-                                states[-1].p2 = (ap[0] + 1, ap[1] - 1)
-        # Moving left
-        if ap[1] < 8:
-            if not self.wall_adj(ap[0], ap[1], _Direction.LEFT):
-                if (ap[0] + 1, ap[1]) != ip:
-                    # Add state
-                    states.append(self.deepcopy())
-                    if p1_turn:
-                        states[-1].p1 = (ap[0] + 1, ap[1])
+                    # Check whether straight jump can be performed
+                    if ap[0] < 7 and not self.wall_adj(ip[0], ip[1], _Dir.RIGHT):
+                        states.append(self.__move_pawn(p1_turn, ap[0] + 2, ap[1]))
                     else:
-                        states[-1].p2 = (ap[0] + 1, ap[1])
+                        # Check whether downward diagonal jump can be performed
+                        if ap[1] > 0 and not self.wall_adj(ip[0], ip[1], _Dir.DOWN):
+                            states.append(self.__move_pawn(p1_turn, ap[0] + 1, ap[1] - 1))
+                        # Check whether upward diagonal jump can be performed
+                        if ap[1] < 8 and not self.wall_adj(ip[0], ip[1], _Dir.UP):
+                            states.append(self.__move_pawn(p1_turn, ap[0] + 1, ap[1] + 1))
+
+        # Jumping left
+        if ap[0] > 0:
+            # Check for wall
+            if not self.wall_adj(ap[0], ap[1], _Dir.RIGHT):
+                # Check for inactive pawn
+                if (ap[0] - 1, ap[1]) != ip:
+                    states.append(self.__move_pawn(p1_turn, ap[0] - 1, ap[1]))
                 else:
-                    #Left jump
-                    if (ap[0] - 1, ap[1]) == ip and not self.wall_adj(ap[0] - 1, ap[1], _Direction.LEFT) and not (ip[0] == 0 or ip[0] == 8):
-                        states.append(self.deepcopy())
-                        if p1_turn:
-                            states[-1].p1 = (ap[0] - 2, ap[1])
-                        else:
-                            states[-1].p2 = (ap[0] - 2, ap[1])
-                    #if ip is to the left and there is a wall to the left of ip
-                    if (ap[0] + 1, ap[1]) == ip and self.wall_adj(ap[0] + 1, ap[1], _Direction.LEFT) and not (ip[0] == 0 or ip[0] == 8):
-                        #Left and Up
-                        if not ip[1] == 8 and not self.wall_adj(ap[0] + 1, ap[1], _Direction.UP):
-                            states.append(self.deepcopy())
-                            if p1_turn:
-                                states[-1].p1 = (ap[0] - 1, ap[1] + 1)
-                            else:
-                                states[-1].p2 = (ap[0] - 1, ap[1] + 1)
-                        #Left and Down
-                        if not ip[1] == 0 and not self.wall_adj(ap[0] + 1, ap[1], _Direction.DOWN):
-                            states.append(self.deepcopy())
-                            if p1_turn:
-                                states[-1].p1 = (ap[0] - 1, ap[1] - 1)
-                            else:
-                                states[-1].p2 = (ap[0] - 1, ap[1] - 1)
-            
+                    # Check whether straight jump can be performed
+                    if ap[0] > 1 and not self.wall_adj(ip[0], ip[1], _Dir.LEFT):
+                        states.append(self.__move_pawn(p1_turn, ap[0] - 2, ap[1]))
+                    else:
+                        # Check whether downward diagonal jump can be performed
+                        if ap[1] > 0 and not self.wall_adj(ip[0], ip[1], _Dir.DOWN):
+                            states.append(self.__move_pawn(p1_turn, ap[0] - 1, ap[1] - 1))
+                        # Check whether upward diagonal jump can be performed
+                        if ap[1] < 8 and not self.wall_adj(ip[0], ip[1], _Dir.UP):
+                            states.append(self.__move_pawn(p1_turn, ap[0] - 1, ap[1] + 1))
+
         return states
+    
+    # Places a wall, creating a new state
+    def __place_wall(self, p1_turn: bool, x: int, y: int, alignment: int) \
+        -> "Board":
+        state = deepcopy(self)
+        state.walls[alignment][y][x] = True
+        if p1_turn:
+            state.p1_walls -= 1
+        else:
+            state.p2_walls -= 1
+        return state
+    
+    def __move_pawn(self, p1_turn: bool, x: int, y: int) -> "Board":
+        state = deepcopy(self)
+        if p1_turn:
+            state.p1 = (x, y)
+        else:
+            state.p2 = (x, y)
+        return state
 
     def __str__(self):
         s = ""
@@ -256,7 +192,7 @@ class Board:
             for x in range(9):
                 # Place vertical wall segment
                 if x > 0:
-                    if self.wall_adj(x, y, _Direction.LEFT):
+                    if self.wall_adj(x, y, _Dir.LEFT):
                         s += '#'
                     else:
                         s += '|'
@@ -274,14 +210,15 @@ class Board:
             for x in range(9):
                 # Place horizontal wall segment
                 if y > 0:
-                    if self.wall_adj(x, y, _Direction.DOWN):
+                    if self.wall_adj(x, y, _Dir.DOWN):
                         s += '#'
                     else:
                         s += '-'
                 
                 # Place corner
                 if x < 8 and y > 0:
-                    if y > 0 and (self.walls[0][y-1][x] or self.walls[1][y-1][x]):
+                    if y > 0 and (self.walls[0][y-1][x] or
+                        self.walls[1][y-1][x]):
                         s += '#'
                     else:
                         s += '+'
@@ -291,12 +228,3 @@ class Board:
         # Add wall counts
         s = f"{s}P1: {self.p1_walls:2}     P2: {self.p2_walls:2}"
         return s
-
-def main():
-    board = Board()
-    print(board)
-    print(len(board.adj_states(1)))
-
-if __name__ == "__main__":
-    main()
-
