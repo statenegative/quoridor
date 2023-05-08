@@ -67,7 +67,7 @@ class Board:
             return self.walls[1][y-1][x-1] or self.walls[1][y][x-1]
     
     # Returns a list of all valid adjacent board states.
-    def adj_states(self, p1_turn: bool) -> list("Board"):
+    def adj_states(self, p1_turn: bool) -> list["Board"]:
         states = []
 
         # Handle movement and jumping. This is done before wall placement since
@@ -260,7 +260,7 @@ class Board:
         return state
     
     # Calculates the proximity of a wall to a pawn
-    def __prox(self, pawn: (int, int), x: int, y: int) -> int:
+    def __prox(self, pawn: tuple[int, int], x: int, y: int) -> int:
         prox = 0
         
         # Handle horizontal component

@@ -3,7 +3,7 @@
 # Author: Julia Kaeppel
 from quoridor import Board
 from typing import Optional
-import pickle
+import heapq
 
 # Max depth to search
 MAX_DEPTH = 2
@@ -13,7 +13,7 @@ def pick_move(state: Board, p1_turn: bool) -> Board:
     return negamax(state, MAX_DEPTH, float("-inf"), float("+inf"), p1_turn)[1]
 
 # Negamax implementation
-def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool) -> (float, Optional[Board]):
+def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool) -> tuple[float, Optional[Board]]:
     color = 1 if p1_turn else -1
 
     # Check for terminal state reached
@@ -24,6 +24,10 @@ def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool) 
     if depth == 0:
         return (color * heuristic(state), None)
     
+    # Handle training data generation
+    if depth == MAX_DEPTH:
+        scores = []
+
     # Recursively find the best child state
     value = float("-inf")
     children = state.adj_states(p1_turn)
