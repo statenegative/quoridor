@@ -1,0 +1,17 @@
+[project]
+name = "quoridor"
+version = "0.0.1"
+authors = [
+    { name = "Julia Kaeppel" },
+    { name = "Ben McAuliffe" },
+]
+readme = "README.md"
+dependencies = [
+    "numpy",
+    "sortedcontainers",
+    "tensorflow",
+]
+
+[build-system]
+requires = ["setuptools>=67.7.2"]
+build-backend = "setuptools.build_meta"
