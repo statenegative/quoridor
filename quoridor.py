@@ -5,6 +5,7 @@ from enum import Enum
 import numpy as np
 from copy import deepcopy
 import heapq
+from typing import Optional
 
 class _Dir(Enum):
     UP = 0
@@ -24,6 +25,8 @@ class Board:
         self.p2 = (4, 8)
         self.p1_walls = 10
         self.p2_walls = 10
+        self.p1_dist = self.shortest_path(True)
+        self.p2_dist = self.shortest_path(False)
     
     # Returns whether a wall is adjacent to a tile in a given direction.
     def wall_adj(self, x: np.uint8, y: np.uint8, dir: _Dir) -> bool:
@@ -67,32 +70,9 @@ class Board:
     def adj_states(self, p1_turn: bool) -> list("Board"):
         states = []
 
-        # Place walls
-        for y in range(8):
-            for x in range(8):
-                # Check wall count
-                active_walls = self.p1_walls if p1_turn else self.p2_walls
-                if active_walls == 0:
-                    continue
-
-                # Horizontal wall
-                if not (self.wall_adj(x, y, _Dir.UP) or
-                    self.wall_adj(x + 1, y, _Dir.UP) or self.walls[1][y][x]):
-                    # Ensure wall placement is valid
-                    state = self.__place_wall(p1_turn, x, y, 0)
-                    if state.path_exists(p1_turn) and state.path_exists(not p1_turn):
-                        states.append(state)
-                
-                # Vertical wall
-                if not (self.wall_adj(x, y, _Dir.RIGHT) or
-                    self.wall_adj(x, y + 1, _Dir.RIGHT) or
-                    self.walls[0][y][x]):
-                    # Ensure wall place ment is valid
-                    state = self.__place_wall(p1_turn, x, y, 1)
-                    if state.path_exists(p1_turn) and state.path_exists(not p1_turn):
-                        states.append(state)
-        
-        # Handle jumping
+        # Handle movement and jumping. This is done before wall placement since
+        # on average, moving is a very bad idea and will thus establish a good
+        # lower bound for alpha-beta pruning.
         ap, ip = (self.p1, self.p2) if p1_turn else (self.p2, self.p1)
 
         # Jumping up
@@ -170,11 +150,48 @@ class Board:
                         # Check whether upward diagonal jump can be performed
                         if ap[1] < 8 and not self.wall_adj(ip[0], ip[1], _Dir.UP):
                             states.append(self.__move_pawn(p1_turn, ap[0] - 1, ap[1] + 1))
+        
+        # Ensure a wall can actually be placed
+        active_walls = self.p1_walls if p1_turn else self.p2_walls
+        if active_walls == 0:
+            return states
+
+        # Order walls based on proximity to pawns
+        walls = []
+        for y in range(8):
+            for x in range(8):
+                prox = min(self.__prox(self.p1, x, y), self.__prox(self.p2, x, y))
+                heapq.heappush(walls, (prox, x, y))
+
+        # Place walls
+        while walls:
+            _, x, y = heapq.heappop(walls)
+
+            # Horizontal wall
+            if not (self.wall_adj(x, y, _Dir.UP) or
+                self.wall_adj(x + 1, y, _Dir.UP) or self.walls[1][y][x]):
+                # Ensure wall placement is valid
+                state = self.__place_wall(p1_turn, x, y, 0)
+                state.p1_dist = state.shortest_path(True)
+                state.p2_dist = state.shortest_path(False)
+                if state.p1_dist != None and state.p2_dist != None:
+                    states.append(state)
+            
+            # Vertical wall
+            if not (self.wall_adj(x, y, _Dir.RIGHT) or
+                self.wall_adj(x, y + 1, _Dir.RIGHT) or
+                self.walls[0][y][x]):
+                # Ensure wall place ment is valid
+                state = self.__place_wall(p1_turn, x, y, 1)
+                state.p1_dist = state.shortest_path(True)
+                state.p2_dist = state.shortest_path(False)
+                if state.p1_dist != None and state.p2_dist != None:
+                    states.append(state)
 
         return states
     
     # Determines whether a path to the end exists
-    def path_exists(self, p1_turn: bool) -> bool:
+    def shortest_path(self, p1_turn: bool) -> Optional[float]:
         open_list = []
         closed_list = set()
 
@@ -187,16 +204,16 @@ class Board:
         while open_list:
             elem = heapq.heappop(open_list)
             dist = elem[1] + 1
-            x, y = (elem[2], elem[3])
+            x, y = elem[2], elem[3]
             closed_list.add((x, y))
             
             # Check for completion
             if p1_turn:
                 if y == 7 and not self.wall_adj(x, y, _Dir.UP):
-                    return True 
+                    return dist 
             else:
                 if y == 1 and not self.wall_adj(x, y, _Dir.DOWN):
-                    return True
+                    return dist
             
             # Move up
             if y < 8 and not self.wall_adj(x, y, _Dir.UP) and not (x, y + 1) in closed_list:
@@ -214,14 +231,8 @@ class Board:
             if x > 0 and not self.wall_adj(x, y, _Dir.LEFT) and not (x - 1, y) in closed_list:
                 heapq.heappush(open_list, (abs(y - target) + dist, dist, x - 1, y))
 
-        return False
+        return None
 
-    # Finds the shortest path to the end
-    def shortest_path(self, p1_turn: bool):
-        ap = self.p1 if p1_turn else self.p2
-
-        pass
-    
     # Places a wall, creating a new state
     def __place_wall(self, p1_turn: bool, x: int, y: int, alignment: int) \
         -> "Board":
@@ -233,6 +244,7 @@ class Board:
             state.p2_walls -= 1
         return state
     
+    # Moves a pawn to a specified position
     def __move_pawn(self, p1_turn: bool, x: int, y: int) -> "Board":
         state = deepcopy(self)
         if p1_turn:
@@ -240,6 +252,24 @@ class Board:
         else:
             state.p2 = (x, y)
         return state
+    
+    # Calculates the proximity of a wall to a pawn
+    def __prox(self, pawn: (int, int), x: int, y: int) -> int:
+        prox = 0
+        
+        # Handle horizontal component
+        if x < pawn[0]:
+            prox += pawn[0] - x - 1
+        else:
+            prox += x - pawn[0]
+
+        # Handle vertical component
+        if y < pawn[1]:
+            prox += pawn[1] - y - 1
+        else:
+            prox += y - pawn[1]
+        
+        return prox
 
     def __str__(self):
         s = ""
@@ -284,3 +314,13 @@ class Board:
         # Add wall counts
         s = f"{s}P1: {self.p1_walls:2}     P2: {self.p2_walls:2}"
         return s
+
+def main():
+    board = Board()
+    
+    for state in board.adj_states(True):
+        print(state)
+        print()
+
+if __name__ == "__main__":
+    main()
