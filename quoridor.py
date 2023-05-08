@@ -78,13 +78,19 @@ class Board:
                 # Horizontal wall
                 if not (self.wall_adj(x, y, _Dir.UP) or
                     self.wall_adj(x + 1, y, _Dir.UP) or self.walls[1][y][x]):
-                    states.append(self.__place_wall(p1_turn, x, y, 0))
+                    # Ensure wall placement is valid
+                    state = self.__place_wall(p1_turn, x, y, 0)
+                    if state.path_exists(p1_turn) and state.path_exists(not p1_turn):
+                        states.append(state)
                 
                 # Vertical wall
                 if not (self.wall_adj(x, y, _Dir.RIGHT) or
                     self.wall_adj(x, y + 1, _Dir.RIGHT) or
                     self.walls[0][y][x]):
-                    states.append(self.__place_wall(p1_turn, x, y, 1))
+                    # Ensure wall place ment is valid
+                    state = self.__place_wall(p1_turn, x, y, 1)
+                    if state.path_exists(p1_turn) and state.path_exists(not p1_turn):
+                        states.append(state)
         
         # Handle jumping
         ap, ip = (self.p1, self.p2) if p1_turn else (self.p2, self.p1)
@@ -278,13 +284,3 @@ class Board:
         # Add wall counts
         s = f"{s}P1: {self.p1_walls:2}     P2: {self.p2_walls:2}"
         return s
-
-def main():
-    board = Board()
-    board.walls[1][0][3] = True
-    board.walls[1][0][4] = True
-    print(board)
-    print(board.path_exists(True))
-
-if __name__ == "__main__":
-    main()
