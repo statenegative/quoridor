@@ -135,7 +135,7 @@ class Board:
         # Jumping left
         if ap[0] > 0:
             # Check for wall
-            if not self.wall_adj(ap[0], ap[1], _Dir.RIGHT):
+            if not self.wall_adj(ap[0], ap[1], _Dir.LEFT):
                 # Check for inactive pawn
                 if (ap[0] - 1, ap[1]) != ip:
                     states.append(self.__move_pawn(p1_turn, ap[0] - 1, ap[1]))
@@ -232,6 +232,10 @@ class Board:
                 heapq.heappush(open_list, (abs(y - target) + dist, dist, x - 1, y))
 
         return None
+    
+    # Checks whether this state is terminal
+    def terminal(self):
+        return self.p1[1] == 8 or self.p2[1] == 0
 
     # Places a wall, creating a new state
     def __place_wall(self, p1_turn: bool, x: int, y: int, alignment: int) \
@@ -249,8 +253,10 @@ class Board:
         state = deepcopy(self)
         if p1_turn:
             state.p1 = (x, y)
+            state.p1_dist = state.shortest_path(True)
         else:
             state.p2 = (x, y)
+            state.p2_dist = state.shortest_path(False)
         return state
     
     # Calculates the proximity of a wall to a pawn
