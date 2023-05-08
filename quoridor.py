@@ -4,6 +4,7 @@
 from enum import Enum
 import numpy as np
 from copy import deepcopy
+import heapq
 
 class _Dir(Enum):
     UP = 0
@@ -166,6 +167,55 @@ class Board:
 
         return states
     
+    # Determines whether a path to the end exists
+    def path_exists(self, p1_turn: bool) -> bool:
+        open_list = []
+        closed_list = set()
+
+        # Add initial position to queue
+        ap = self.p1 if p1_turn else self.p2
+        target = 8 if p1_turn else 0
+        heapq.heappush(open_list, (abs(ap[1] - target), 0, ap[0], ap[1]))
+
+        # Loop over queue
+        while open_list:
+            elem = heapq.heappop(open_list)
+            dist = elem[1] + 1
+            x, y = (elem[2], elem[3])
+            closed_list.add((x, y))
+            
+            # Check for completion
+            if p1_turn:
+                if y == 7 and not self.wall_adj(x, y, _Dir.UP):
+                    return True 
+            else:
+                if y == 1 and not self.wall_adj(x, y, _Dir.DOWN):
+                    return True
+            
+            # Move up
+            if y < 8 and not self.wall_adj(x, y, _Dir.UP) and not (x, y + 1) in closed_list:
+                heapq.heappush(open_list, (abs(y + 1 - target) + dist, dist, x, y + 1))
+            
+            # Move down
+            if y > 0 and not self.wall_adj(x, y, _Dir.DOWN):
+                heapq.heappush(open_list, (abs(y - 1 - target) + dist, dist, x, y - 1))
+            
+            # Move right
+            if x < 8 and not self.wall_adj(x, y, _Dir.RIGHT) and not (x + 1, y) in closed_list:
+                heapq.heappush(open_list, (abs(y - target) + dist, dist, x + 1, y))
+            
+            # Move left
+            if x > 0 and not self.wall_adj(x, y, _Dir.LEFT) and not (x - 1, y) in closed_list:
+                heapq.heappush(open_list, (abs(y - target) + dist, dist, x - 1, y))
+
+        return False
+
+    # Finds the shortest path to the end
+    def shortest_path(self, p1_turn: bool):
+        ap = self.p1 if p1_turn else self.p2
+
+        pass
+    
     # Places a wall, creating a new state
     def __place_wall(self, p1_turn: bool, x: int, y: int, alignment: int) \
         -> "Board":
@@ -228,3 +278,13 @@ class Board:
         # Add wall counts
         s = f"{s}P1: {self.p1_walls:2}     P2: {self.p2_walls:2}"
         return s
+
+def main():
+    board = Board()
+    board.walls[1][0][3] = True
+    board.walls[1][0][4] = True
+    print(board)
+    print(board.path_exists(True))
+
+if __name__ == "__main__":
+    main()
