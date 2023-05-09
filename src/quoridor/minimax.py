@@ -4,16 +4,29 @@
 from quoridor import Board
 from typing import Optional
 import heapq
+from sortedcontainers import SortedList
 
 # Max depth to search
 MAX_DEPTH = 2
+
+# Class for sorting state-score pairs
+class StateScore:
+    def __init__(self, state: Board, score: int):
+        self.state = state
+        self.score = score
+    
+    def __eq__(self, other):
+        return self.score == other.score
+    
+    def __lt__(self, other):
+        return self.score < other.score
 
 # Picks the best move
 def pick_move(state: Board, p1_turn: bool) -> Board:
     return negamax(state, MAX_DEPTH, float("-inf"), float("+inf"), p1_turn)[1]
 
 # Negamax implementation
-def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool) -> tuple[float, Optional[Board]]:
+def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool, gen_data: bool, score_prio: int) -> tuple[float, Optional[Board]]:
     color = 1 if p1_turn else -1
 
     # Check for terminal state reached
@@ -25,8 +38,8 @@ def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool) 
         return (color * heuristic(state), None)
     
     # Handle training data generation
-    if depth == MAX_DEPTH:
-        scores = []
+    if gen_data:
+        state_scores = SortedList()
 
     # Recursively find the best child state
     value = float("-inf")
@@ -34,7 +47,11 @@ def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool) 
     max_state = children[0]
     for child in children:
         # Calculate child score
-        score = -negamax(child, depth - 1, -beta, -alpha, not p1_turn)[0]
+        score = -negamax(child, depth - 1, -beta, -alpha, not p1_turn, False, 0)[0]
+
+        # Handle training data generation
+        if gen_data:
+            state_scores.add(StateScore(child, score))
 
         # Check for new best score
         if score > value:
@@ -50,27 +67,13 @@ def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool) 
     if max_state == None:
         print("PANIC!")
     
-    return (value, max_state)
+    # Determine whether to return a score priority
+    if not gen_data:
+        return (value, max_state)
+    else:
+        state_score = state_scores[-score_prio]
+        return (state_score.score, state_score.state)
 
 # Manual heuristic which compares the shortest path distances of the two pawns
 def heuristic(state: Board) -> float:
     return state.p2_dist - state.p1_dist
-
-def main():
-    board = Board()
-    
-    while not board.terminal():
-        # Player 1 move
-        board = pick_move(board, True)
-        print(board)
-        print()
-        if board.terminal():
-            break
-            
-        # Player 2 move
-        board = pick_move(board, False)
-        print(board)
-        print()
-
-if __name__ == "__main__":
-    main()

@@ -236,6 +236,13 @@ class Board:
     # Checks whether this state is terminal
     def terminal(self):
         return self.p1[1] == 8 or self.p2[1] == 0
+    
+    # Compares boards. All fields except dist fields are compared, since those
+    # are guaranteed to be the same if all other fields match.
+    def __eq__(self, other):
+        return (self.walls == other.walls).all() and self.p1 == other.p1 and \
+            self.p2 == other.p2 and self.p1_walls == other.p1_walls and \
+            self.p2_walls == other.p2_walls
 
     # Places a wall, creating a new state
     def __place_wall(self, p1_turn: bool, x: int, y: int, alignment: int) \
