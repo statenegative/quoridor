@@ -5,6 +5,8 @@ import pickle
 from quoridor import Board
 import minimax
 import random
+import time
+import os
 
 # Training data information for a board state
 class StateInfo:
@@ -26,11 +28,12 @@ class DataSet:
         key = (Board(), True)
         self.unprocessed[key] = StateInfo()
 
-    # Generates new states up to the target size
-    def gen_states(self, target_size: int):
+    # Generates new states up to the target size. autosave_interval is measured
+    # in seconds.
+    def gen_states(self, target_size: int, filepath: str, autosave_interval: int=60):
+        autosave_time = time.time()
+        max_len = 0
         while len(self.valid) < target_size:
-            print(len(self.valid))
-
             # If there are no unprocessed states, begin processing the previously
             # processed states
             if len(self.unprocessed) == 0:
@@ -70,3 +73,28 @@ class DataSet:
             child_key = (child, not p1_turn)
             if not (child_key in self.valid or child_key in self.unprocessed):
                 self.unprocessed[child_key] = StateInfo()
+
+            # Print progress
+            if len(self.valid) > max_len:
+                max_len = len(self.valid)
+                print(max_len)
+           
+            # Autosave if necessary
+            curr_time = time.time()
+            if autosave_time > 0 and curr_time - autosave_time >= autosave_interval:
+                self.save(filepath + f"/d{minimax.MAX_DEPTH}-autosave")
+                autosave_time = time.time()
+        
+        # Create final save
+        self.save(filepath + f"/d{minimax.MAX_DEPTH}-{len(self.valid)}")
+    
+    # Saves the dataset.
+    def save(self, file_prefix: str):
+        file_name = file_prefix + ".pickle"
+        file_backup = file_prefix + "-backup.pickle"
+
+        # Create backup from previous dataset
+        if os.path.isfile(file_name):
+            os.replace(file_name, file_backup)
+        # Save file
+        pickle.dump(self, open(file_name, "wb"))
