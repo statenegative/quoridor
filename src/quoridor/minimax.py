@@ -6,8 +6,6 @@ from typing import Optional
 import heapq
 from sortedcontainers import SortedList
 
-import pickle
-
 # Max depth to search
 MAX_DEPTH = 1
 
