@@ -31,7 +31,7 @@ def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool, 
 
     # Check for terminal state reached
     if state.terminal():
-        return (color * float("+inf"), state)
+        return (color * float("-inf"), state)
     
     # Check for max depth reached
     if depth == 0:
@@ -40,7 +40,7 @@ def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool, 
     # Handle training data generation
     if gen_data:
         state_scores = SortedList()
-    
+
     # Recursively find the best child state
     value = float("-inf")
     children = state.adj_states(p1_turn)

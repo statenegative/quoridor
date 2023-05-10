@@ -18,13 +18,16 @@ class _Dir(Enum):
 # dimension is the Y dimension, and the third dimension is the X dimension.
 # (0, 0) is the bottom left corner
 class Board:
-    # Initializes an empty board with initial pawn placements.
-    def __init__(self):
-        self.walls = np.full(shape=(2, 8, 8), fill_value=False, dtype=bool)
-        self.p1 = (4, 0)
-        self.p2 = (4, 8)
-        self.p1_walls = 10
-        self.p2_walls = 10
+    # Initializes a board
+    def __init__(self, walls: np.ndarray=np.full(shape=(2, 8, 8), fill_value=False, dtype=bool), \
+        p1: (int, int)=(4, 0), p2: (int, int)=(4, 8), p1_walls: int=10, p2_walls: int=10):
+        self.walls = walls
+        self.p1 = p1
+        self.p2 = p2
+        self.p1_walls = p1_walls
+        self.p2_walls = p2_walls
+
+        # Precompute shortest paths and hash code
         self.p1_dist = self.shortest_path(True)
         self.p2_dist = self.shortest_path(False)
         self.hash = hash((self.walls.data.tobytes(), self.p1, self.p2, self.p1_walls, self.p2_walls))
@@ -182,7 +185,7 @@ class Board:
             if not (self.wall_adj(x, y, _Dir.RIGHT) or
                 self.wall_adj(x, y + 1, _Dir.RIGHT) or
                 self.walls[0][y][x]):
-                # Ensure wall place ment is valid
+                # Ensure wall placement is valid
                 state = self.__place_wall(p1_turn, x, y, 1)
                 state.p1_dist = state.shortest_path(True)
                 state.p2_dist = state.shortest_path(False)
