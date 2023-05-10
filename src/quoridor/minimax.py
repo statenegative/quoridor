@@ -6,8 +6,10 @@ from typing import Optional
 import heapq
 from sortedcontainers import SortedList
 
+import pickle
+
 # Max depth to search
-MAX_DEPTH = 2
+MAX_DEPTH = 1
 
 # Class for sorting state-score pairs
 class StateScore:
@@ -23,7 +25,7 @@ class StateScore:
 
 # Picks the best move
 def pick_move(state: Board, p1_turn: bool) -> Board:
-    return negamax(state, MAX_DEPTH, float("-inf"), float("+inf"), p1_turn)[1]
+    return negamax(state, MAX_DEPTH, float("-inf"), float("+inf"), p1_turn, False, 0)[1]
 
 # Negamax implementation
 def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool, gen_data: bool, score_prio: int) -> tuple[float, Optional[Board]]:
@@ -40,7 +42,7 @@ def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool, 
     # Handle training data generation
     if gen_data:
         state_scores = SortedList()
-
+    
     # Recursively find the best child state
     value = float("-inf")
     children = state.adj_states(p1_turn)
@@ -58,10 +60,11 @@ def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool, 
             value = score
             max_state = child
         
-        # Handle alpha-beta pruning
-        alpha = max(alpha, value)
-        if alpha >= beta:
-            break
+        # Only handle alpha-beta pruning when gen_data is disabled
+        if not gen_data:
+            alpha = max(alpha, value)
+            if alpha >= beta:
+                break
     
     # This is just here to let me know something has gone catastrophically wrong
     if max_state == None:
@@ -71,7 +74,9 @@ def negamax(state: Board, depth: int, alpha: float, beta: float, p1_turn: bool, 
     if not gen_data:
         return (value, max_state)
     else:
-        state_score = state_scores[-score_prio]
+        # Ensure index out of bounds error doesn't occur
+        index = -min(score_prio, len(state_scores))
+        state_score = state_scores[index]
         return (state_score.score, state_score.state)
 
 # Manual heuristic which compares the shortest path distances of the two pawns

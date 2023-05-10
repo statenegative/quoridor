@@ -27,6 +27,7 @@ class Board:
         self.p2_walls = 10
         self.p1_dist = self.shortest_path(True)
         self.p2_dist = self.shortest_path(False)
+        self.hash = hash((self.walls.data.tobytes(), self.p1, self.p2, self.p1_walls, self.p2_walls))
     
     # Returns whether a wall is adjacent to a tile in a given direction.
     def wall_adj(self, x: np.uint8, y: np.uint8, dir: _Dir) -> bool:
@@ -240,9 +241,16 @@ class Board:
     # Compares boards. All fields except dist fields are compared, since those
     # are guaranteed to be the same if all other fields match.
     def __eq__(self, other):
+        # Check for None
+        if other == None:
+            return False
+
         return (self.walls == other.walls).all() and self.p1 == other.p1 and \
             self.p2 == other.p2 and self.p1_walls == other.p1_walls and \
             self.p2_walls == other.p2_walls
+    
+    def __hash__(self) -> int:
+        return self.hash
 
     # Places a wall, creating a new state
     def __place_wall(self, p1_turn: bool, x: int, y: int, alignment: int) \
@@ -327,13 +335,3 @@ class Board:
         # Add wall counts
         s = f"{s}P1: {self.p1_walls:2}     P2: {self.p2_walls:2}"
         return s
-
-def main():
-    board = Board()
-    
-    for state in board.adj_states(True):
-        print(state)
-        print()
-
-if __name__ == "__main__":
-    main()
