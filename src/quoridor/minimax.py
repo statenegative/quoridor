@@ -7,7 +7,7 @@ import heapq
 from sortedcontainers import SortedList
 
 # Max depth to search
-MAX_DEPTH = 1
+MAX_DEPTH = 2
 
 # Class for sorting state-score pairs
 class StateScore:

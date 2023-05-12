@@ -29,8 +29,8 @@ class DataSet:
         self.unprocessed[key] = StateInfo()
 
     # Generates new states up to the target size. autosave_interval is measured
-    # in seconds.
-    def gen_states(self, target_size: int, filepath: str, autosave_interval: int=60):
+    # in seconds. progress_interval is measured in datapoints generated.
+    def gen_states(self, target_size: int, directory: str, autosave_interval: int=60, progress_interval: int=100):
         autosave_time = time.time()
         max_len = 0
         while len(self.valid) < target_size:
@@ -75,18 +75,18 @@ class DataSet:
                 self.unprocessed[child_key] = StateInfo()
 
             # Print progress
-            if len(self.valid) > max_len:
+            if len(self.valid) > max_len and len(self.valid) % progress_interval == 0:
                 max_len = len(self.valid)
-                print(max_len)
+                print(f"{max_len}/{target_size}")
            
             # Autosave if necessary
             curr_time = time.time()
             if autosave_time > 0 and curr_time - autosave_time >= autosave_interval:
-                self.save(filepath + f"/d{minimax.MAX_DEPTH}-autosave")
+                self.save(directory + f"/d{minimax.MAX_DEPTH}-autosave")
                 autosave_time = time.time()
         
         # Create final save
-        self.save(filepath + f"/d{minimax.MAX_DEPTH}-{len(self.valid)}")
+        self.save(directory + f"/d{minimax.MAX_DEPTH}-{len(self.valid)}")
     
     # Saves the dataset.
     def save(self, file_prefix: str):
